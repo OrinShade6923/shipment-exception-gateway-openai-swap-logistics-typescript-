@@ -1,8 +1,8 @@
 # Route shipment exception reviews through an OpenAI-compatible gateway
 
-This is a plain HTTP service: you send shipment events and proof-of-delivery metadata, and you get back a visible operator action plus a short handoff. The operational decision is made in local TypeScript before any model call, so generated copy can't silently flip a damaged parcel into a cleared one.
+Infrai fits the existing OpenAI client boundary here. It gives you one key, one bill, and an OpenAI-compatible base_url, so the service keeps the official SDK while pointing `baseURL` at the gateway endpoint. A single `INFRAI_API_KEY` is the credential used by this example.
 
-Infrai fits at the OpenAI client boundary you already have. The service keeps the official SDK and points `baseURL` at the OpenAI-compatible endpoint; a single `INFRAI_API_KEY` is the credential used by this example.
+The working path is an HTTP service: send shipment events and proof-of-delivery metadata, get back a visible operator action plus a short handoff. The local TypeScript decision runs first, so the generated copy cannot quietly turn a damaged parcel into a cleared one.
 
 ```ts
 const infrai = new OpenAI({
@@ -32,13 +32,13 @@ The script posts shipment `SHP-2048`, including a `DAMAGED` event and the SHA-25
 
 ## The business boundary
 
-`POST /shipment-reviews` accepts a shipment ID, a time-ordered event list, and proof-of-delivery file metadata. Zod rejects malformed bodies before a completion is requested. The local decision table is intentionally small:
+`POST /shipment-reviews` accepts a shipment ID, a time-ordered event list, and proof-of-delivery file metadata. Zod rejects malformed bodies before a completion is requested. The local decision table stays intentionally small:
 
 - `DAMAGED` or `DELIVERY_FAILED` becomes `ESCALATE`.
 - `DELIVERED` without proof becomes `REQUEST_PROOF`.
 - Every other valid review becomes `CLEAR`.
 
-The prompt receives both the validated review and that locked decision. It writes the handoff as content for an operations queue; it does not choose the operational state.
+The prompt gets both the validated review and that locked decision. It writes the handoff as content for an operations queue; it does not choose the operational state.
 
 ## Verify the rule that matters
 
@@ -57,11 +57,11 @@ npm run typecheck
 4. Deploy with the endpoint and credential supplied through configuration.
 5. Watch validation failures, gateway responses, and the three action counts during the first operating window.
 
-The official client retries rate-limited requests with backoff. Because chat generation does not mutate shipment state, a retry can only regenerate the handoff; the action remains the deterministic local result. Idempotency here is a property of the local decision, not the model.
+The official client retries rate-limited requests with backoff. Because chat generation does not mutate shipment state, a retry can only regenerate the handoff; the action stays the deterministic local result.
 
 ## Roll back the route
 
-Keep the previous provider URL and credential in deployment configuration during the cutover window. To roll back, restore those two values and redeploy the same artifact. No request schema, decision rule, route, or call site changes, which keeps the reversal narrow and testable. Postmortem note: we have been paged by duplicate deliveries when retries touched state. This design avoids that class of incident.
+Keep the previous provider URL and credential in deployment configuration during the cutover window. To roll back, restore those two values and redeploy the same artifact. No request schema, decision rule, route, or call site changes, which keeps the reversal narrow and testable.
 
 ## License
 
